@@ -4,15 +4,15 @@
 resolution = true
 skip-lint = false
 
-[programs.devnet]
-coinflip = "2Y3e93kkP8RpNT2Jb5fKLVGqZKV8UDUcH4KM6TjDDJc4"
+[programs.localnet]
+dice = "2yGiLmgFhZvHvLYMshTwcAsZ9Ja2wNxxQiSWKhmPmqZe"
 
 [registry]
-url = "https://api.devnet.solana.com"
+url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "devnet"
-wallet = "./id.json"
+cluster = "localnet"
+wallet = "./1.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

@@ -1,12 +1,12 @@
 [package]
-name = "coinflip"
+name = "dice"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "coinflip"
+name = "dice"
 
 [features]
 no-entrypoint = []
@@ -14,10 +14,12 @@ no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
-anchor-lang = "0.31.0"
+anchor-lang = { version = "0.31.0", features = ["derive"] }
 anchor-spl = "0.31.0"
-bytemuck = "1.15.0"
-solana-program = "1.18.12"
-spl-token = "3.2.0"
+solana-program = "2.2.1"
+winnow = "=0.4.1"
+toml_edit = "0.20.7"
+sha2 = "0.10.6"
