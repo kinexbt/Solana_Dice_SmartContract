@@ -159,11 +159,12 @@ describe("Dice Game", () => {
   it("should allow a player to place a bet", async () => {
     const betAmount = new anchor.BN(1 * LAMPORTS_PER_SOL); // 0.1 SOL
     const targetNumber = 57;
+    const is_under = true;
 
     console.log("betAmount: ", betAmount);
 
     const tx = await program.methods
-      .playGame(targetNumber, true, betAmount)
+      .playGame(targetNumber, is_under, betAmount)
       .accounts({
         owner: player.publicKey,
         operator: operationAdmin.publicKey,
@@ -194,8 +195,10 @@ describe("Dice Game", () => {
     console.log("Player pool after place bet: ", playerPool);
 
     expect(playerPool.player.toString()).to.equal(player.publicKey.toString());
-    expect(playerPool.firstBet.toString()).to.equal(betAmount.toString());
-    expect(playerPool.status).to.deep.equal({ processing: {} });
+    expect(playerPool.bet.toString()).to.equal(betAmount.toString());
+    expect(playerPool.targetNum.toString()).to.equal(targetNumber.toString());
+    expect(playerPool.isUnder.toString()).to.equal(is_under.toString());
+    expect(playerPool.status).to.deep.equal({ active: {} });
   });
 
   // it("should reject bets below minimum", async () => {
@@ -203,7 +206,7 @@ describe("Dice Game", () => {
 
   //   try {
   //     const tx = await program.methods
-  //       .playGame(true, betAmount)
+  //       .playGame(57, true, betAmount)
   //       .accounts({
   //         owner: player.publicKey,
   //         operator: operationAdmin.publicKey,
@@ -232,7 +235,7 @@ describe("Dice Game", () => {
   //   console.log("Initial Game Balance before win was {}", initialBalance);
 
   //   const tx = await program.methods
-  //     .setResult(1, true)
+  //     .setResult(true)
   //     .accounts({
   //       owner: player.publicKey,
   //       operator: operationAdmin.publicKey,
@@ -255,151 +258,100 @@ describe("Dice Game", () => {
   //   console.log("Final Game Balance after win is {}", finalBalance);
   // });
 
-  // it("should process double bet and a loss correctly", async () => {
-  //   await sleep(3000)
-  //   playerPool = await program.account.playerPool.fetch(playerPoolPDA);
-  //   console.log("player pool before double bet : ", playerPool)
+  it("should process a loss correctly", async () => {
+    await sleep(3000)
+    playerPool = await program.account.playerPool.fetch(playerPoolPDA);
+    console.log("player pool before double bet : ", playerPool)
 
-  //   // First play another game
-  //   const doubleTx = await program.methods
-  //     .doubleBet()
-  //     .accounts({
-  //       owner: player.publicKey,
-  //       operator: operationAdmin.publicKey,
-  //     })
-  //     .signers([player, operationAdmin])
-  //     .transaction();
-  //   doubleTx.feePayer = player.publicKey;
-  //   doubleTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  //   console.log(await connection.simulateTransaction(doubleTx));
-  //   const sig = await sendAndConfirmTransaction(connection, doubleTx, [
-  //     player,
-  //     operationAdmin,
-  //   ], {commitment: "finalized", skipPreflight: true});
-  //   console.log(`Double Bet Sig => https://solscan.io/${sig}`);
+    // Then set as loss
+    const lossTx = await program.methods
+    .setResult(false)
+    .accounts({
+      owner: player.publicKey,
+      operator: operationAdmin.publicKey,
+    })
+    .transaction();
 
-  //   await sleep(3000)
+    lossTx.feePayer = player.publicKey;
+    lossTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    console.log(await connection.simulateTransaction(lossTx));
+    const lossSig = await sendAndConfirmTransaction(connection, lossTx, [
+      player,
+      operationAdmin,
+    ]);
+    console.log(`Set Loss Sig => https://solscan.io/${lossSig}`);
 
-  //   playerPool = await program.account.playerPool.fetch(playerPoolPDA);
-  //   console.log("player pool after double bet : ", playerPool)
+    playerPool = await program.account.playerPool.fetch(playerPoolPDA);
+    console.log("PlayerPool after lose of 2nd round: ", playerPool)
 
-  //   // Then set as loss
-  //   const lossTx = await program.methods
-  //   .setResult(2, false)
-  //   .accounts({
-  //     owner: player.publicKey,
-  //     operator: operationAdmin.publicKey,
-  //   })
-  //   .transaction();
+    expect(playerPool.status).to.deep.equal({ lose: {} });
+  });
 
-  //   lossTx.feePayer = player.publicKey;
-  //   lossTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  //   console.log(await connection.simulateTransaction(lossTx));
-  //   const lossSig = await sendAndConfirmTransaction(connection, lossTx, [
-  //     player,
-  //     operationAdmin,
-  //   ]);
-  //   console.log(`Set Loss Sig => https://solscan.io/${lossSig}`);
+  it("should allow admin to withdraw funds", async () => {
+    const recipient = Keypair.generate();
+    const amount = new anchor.BN(0.5 * LAMPORTS_PER_SOL);
 
-  //   playerPool = await program.account.playerPool.fetch(playerPoolPDA);
-  //   console.log("PlayerPool after lose of 2nd round: ", playerPool)
+    const tx = await program.methods
+      .withdraw(amount)
+      .accounts({
+        financialAdmin: financialAdmin.publicKey,
+        recipient: recipient.publicKey,
+      })
+      .transaction();
+    tx.feePayer = financialAdmin.publicKey;
+    tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    console.log(await connection.simulateTransaction(tx));
+    const sig = await sendAndConfirmTransaction(connection, tx, [financialAdmin]);
+    console.log(`RTP update Sig => https://solscan.io/${sig}`);
 
-  //   expect(playerPool.status).to.deep.equal({ lose: {} });
-  // });
+    const recipientBalance = await connection.getBalance(recipient.publicKey);
+    expect(recipientBalance).to.equal(amount.toNumber());
+  });
 
-  // it("should allow a winner to claim their reward", async () => {
-  //   await sleep(3000)
-  //   const initialBalance = await connection.getBalance(player.publicKey);
-  //   console.log("InitialBalance before claim was {}", initialBalance);
+  it("should allow updating RTP", async () => {
+    const newRtp = new anchor.BN(90);
+    const tx = await program.methods
+      .setRtp(newRtp)
+      .accounts({
+        admin: updateAdmin.publicKey,
+        globalPool: globalAuthorityPDA,
+      })
+      .transaction();
 
-  //   const tx = await program.methods
-  //     .claimReward()
-  //     .accounts({
-  //       operator: operationAdmin.publicKey,
-  //       player: player.publicKey,
-  //     })
-  //     .signers([operationAdmin])
-  //     .transaction();
-  //   tx.feePayer = operationAdmin.publicKey;
-  //   tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  //   console.log(await connection.simulateTransaction(tx));
-  //   const sig = await sendAndConfirmTransaction(connection, tx, [
-  //     operationAdmin,
-  //   ]);
-  //   console.log(`Claim Sig => https://solscan.io/${sig}`);
+    tx.feePayer = updateAdmin.publicKey;
+    tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    console.log(await connection.simulateTransaction(tx));
+    const sig = await sendAndConfirmTransaction(connection, tx, [updateAdmin]);
+    console.log(`RTP update Sig => https://solscan.io/${sig}`);
 
-  //   const finalBalance = await connection.getBalance(player.publicKey);
-  //   console.log("FinalBalance after claim is {}", finalBalance);
-  //   expect(finalBalance).to.be.greaterThan(initialBalance);
+    const globalAuthority = await program.account.globalPool.fetch(
+      globalAuthorityPDA
+    );
+    expect(newRtp.eq(globalAuthority.rtp)).to.be.true;
+  });
 
-  //   const playerPool = await program.account.playerPool.fetch(playerPoolPDA);
-  //   expect(playerPool.status).to.deep.equal({ finished: {} });
-  // });
+  it("should allow updating authorities", async () => {
+    const tx = await program.methods
+      .setOperationAuthority(newAdmin.publicKey)
+      .accounts({
+        admin: superAdmin.publicKey,
+        globalPool: globalAuthorityPDA
+      })
+      .transaction();
+    tx.feePayer = superAdmin.publicKey;
+    tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    console.log(await connection.simulateTransaction(tx));
+    const sig = await sendAndConfirmTransaction(connection, tx, [superAdmin]);
+    console.log(`RTP update Sig => https://solscan.io/${sig}`);
 
-  // it("should allow updating RTP", async () => {
-  //   const newRtp = new anchor.BN(90);
-  //   const tx = await program.methods
-  //     .setRtp(newRtp)
-  //     .accounts({
-  //       admin: updateAdmin.publicKey,
-  //       globalPool: globalAuthorityPDA,
-  //     })
-  //     .transaction();
+    const globalAuthority = await program.account.globalPool.fetch(
+      globalAuthorityPDA
+    );
+    expect(globalAuthority.operationAuthority.toString()).to.equal(
+      newAdmin.publicKey.toString()
+    );
+  });
 
-  //   tx.feePayer = updateAdmin.publicKey;
-  //   tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  //   console.log(await connection.simulateTransaction(tx));
-  //   const sig = await sendAndConfirmTransaction(connection, tx, [updateAdmin]);
-  //   console.log(`RTP update Sig => https://solscan.io/${sig}`);
-
-  //   const globalAuthority = await program.account.globalPool.fetch(
-  //     globalAuthorityPDA
-  //   );
-  //   expect(newRtp.eq(globalAuthority.rtp)).to.be.true;
-  // });
-
-  // it("should allow updating authorities", async () => {
-  //   const tx = await program.methods
-  //     .setOperationAuthority(newAdmin.publicKey)
-  //     .accounts({
-  //       admin: superAdmin.publicKey,
-  //       globalPool: globalAuthorityPDA
-  //     })
-  //     .transaction();
-  //   tx.feePayer = superAdmin.publicKey;
-  //   tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  //   console.log(await connection.simulateTransaction(tx));
-  //   const sig = await sendAndConfirmTransaction(connection, tx, [superAdmin]);
-  //   console.log(`RTP update Sig => https://solscan.io/${sig}`);
-
-  //   const globalAuthority = await program.account.globalPool.fetch(
-  //     globalAuthorityPDA
-  //   );
-  //   expect(globalAuthority.operationAuthority.toString()).to.equal(
-  //     newAdmin.publicKey.toString()
-  //   );
-  // });
-
-  // it("should allow admin to withdraw funds", async () => {
-  //   const recipient = Keypair.generate();
-  //   const amount = new anchor.BN(0.5 * LAMPORTS_PER_SOL);
-
-  //   const tx = await program.methods
-  //     .withdraw(amount)
-  //     .accounts({
-  //       financialAdmin: financialAdmin.publicKey,
-  //       recipient: recipient.publicKey,
-  //     })
-  //     .transaction();
-  //   tx.feePayer = financialAdmin.publicKey;
-  //   tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  //   console.log(await connection.simulateTransaction(tx));
-  //   const sig = await sendAndConfirmTransaction(connection, tx, [financialAdmin]);
-  //   console.log(`RTP update Sig => https://solscan.io/${sig}`);
-
-  //   const recipientBalance = await connection.getBalance(recipient.publicKey);
-  //   expect(recipientBalance).to.equal(amount.toNumber());
-  // });
 });
 
 function sleep(ms) {
