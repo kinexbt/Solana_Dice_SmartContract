@@ -137,7 +137,6 @@ describe("Dice Game", () => {
       program.programId
     );
   });
-    console.log("🚀 ~ before ~ casinoVaultPDA:", casinoVaultPDA.toBase58())
 
   it("Is initialized!", async () => {
     // Add your test here.
