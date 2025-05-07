@@ -18,7 +18,7 @@ pub struct GlobalPool {
 }
 
 impl GlobalPool {
-    pub const DATA_SIZE: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 1 + 8; //  162
+    pub const DATA_SIZE: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 1; //  154
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Clone, PartialEq)]
@@ -226,5 +226,5 @@ pub struct PlayerPool {
 }
 
 impl PlayerPool {
-    pub const DATA_SIZE: usize = 8 + 8 + 3 + 1 + 1 + 32; // 63
+    pub const DATA_SIZE: usize = 8 + 3 + 1 + 1 + 32; // 45
 }

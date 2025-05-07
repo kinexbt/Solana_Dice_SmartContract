@@ -12,7 +12,7 @@ use constants::*;
 use error::*;
 use utils::*;
 
-declare_id!("ERGb1PY8tEW86egMDyUwxnUWaSDs54asVRTCLHrFLjvt");
+declare_id!("BqQfYq22b1JFo2aDicPjhPAJisuLgwbLu38MiiS5XM8X");
 
 #[program]
 pub mod dice {
@@ -306,7 +306,7 @@ pub mod dice {
             new_max_num > ctx.accounts.global_pool.min_num,
             GameError::InvalidTargetNumber
         );
-        
+
         ctx.accounts.global_pool.max_num = new_max_num;
         Ok(())
     }
