@@ -137,6 +137,7 @@ describe("Dice Game", () => {
       program.programId
     );
   });
+    console.log("🚀 ~ before ~ casinoVaultPDA:", casinoVaultPDA.toBase58())
 
   it("Is initialized!", async () => {
     // Add your test here.
@@ -373,6 +374,28 @@ describe("Dice Game", () => {
       globalAuthorityPDA
     );
     expect(newRtp.eq(globalAuthority.rtp)).to.be.true;
+  });
+  
+  it("should allow updating MinNum", async () => {
+    const newMinNum = 20;
+    const tx = await program.methods
+      .setMinNum(newMinNum)
+      .accounts({
+        admin: updateAdmin.publicKey,
+        globalPool: globalAuthorityPDA,
+      })
+      .transaction();
+
+    tx.feePayer = updateAdmin.publicKey;
+    tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    console.log(await connection.simulateTransaction(tx));
+    const sig = await sendAndConfirmTransaction(connection, tx, [updateAdmin]);
+    console.log(`MinTargetNumber update Sig => https://solscan.io/${sig}`);
+
+    const globalAuthority = await program.account.globalPool.fetch(
+      globalAuthorityPDA
+    );
+    expect(newMinNum === globalAuthority.minNum).to.be.true;
   });
 
   it("should allow updating authorities", async () => {

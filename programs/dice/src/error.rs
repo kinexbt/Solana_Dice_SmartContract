@@ -26,4 +26,6 @@ pub enum GameError {
     UnauthorizedFinanceAdmin,
     #[msg("Only Update Admin can call this")] // 6011
     UnauthorizedUpdateAdmin,
+    #[msg("Invalid Target Number")] // 6012
+    InvalidTargetNumber,
 }

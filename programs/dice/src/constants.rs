@@ -11,5 +11,5 @@ pub const PERMILLE: u64 = 1000;
 pub const RTP: u64 = 95; // 95%
 pub const MAX_WIN_AMOUNT: u64 = 10000000000;
 pub const MIN_BET_AMOUNT: u64 = 100000000;
-pub const MIN_NUMBER: u64 = 6;
-pub const MAX_NUMBER: u64 = 96;
+pub const MIN_NUMBER: u8 = 9;
+pub const MAX_NUMBER: u8 = 90;

@@ -13,12 +13,12 @@ pub struct GlobalPool {
     pub rtp: u64,                    // 8
     pub max_win_amount: u64,         // 8
     pub min_bet_amount: u64,         // 8
-    pub min_num: u64,                // 8
-    pub max_num: u64,                // 8
+    pub min_num: u8,                // 1
+    pub max_num: u8,                // 1
 }
 
 impl GlobalPool {
-    pub const DATA_SIZE: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8; //  176
+    pub const DATA_SIZE: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 1 + 8; //  162
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Clone, PartialEq)]

@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-dice = "4z1Xhna5oWPsgQj4ELtQUFRm78fjF4dwLuyMyi6dNUpV"
+dice = "ERGb1PY8tEW86egMDyUwxnUWaSDs54asVRTCLHrFLjvt"
 
 [registry]
 url = "https://anchor.projectserum.com"

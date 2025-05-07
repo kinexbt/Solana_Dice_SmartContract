@@ -12,7 +12,7 @@ use constants::*;
 use error::*;
 use utils::*;
 
-declare_id!("4z1Xhna5oWPsgQj4ELtQUFRm78fjF4dwLuyMyi6dNUpV");
+declare_id!("ERGb1PY8tEW86egMDyUwxnUWaSDs54asVRTCLHrFLjvt");
 
 #[program]
 pub mod dice {
@@ -58,8 +58,18 @@ pub mod dice {
         let global_authority = &ctx.accounts.global_authority;
 
         require!(
-            global_authority.min_bet_amount < bet_amount,
+            global_authority.min_bet_amount <= bet_amount,
             GameError::InvalidBetAmount
+        );
+        
+        require!(
+            global_authority.min_num < target_number,
+            GameError::InvalidTargetNumber
+        );
+
+        require!(
+            global_authority.max_num > target_number,
+            GameError::InvalidTargetNumber
         );
 
         let bet_amount_f64 = bet_amount as f64;
@@ -278,6 +288,26 @@ pub mod dice {
 
     pub fn set_min_bet_amount(ctx: Context<SetGlobalPool>, new_min_bet_amount: u64) -> Result<()> {
         ctx.accounts.global_pool.min_bet_amount = new_min_bet_amount;
+        Ok(())
+    }
+    
+    pub fn set_min_num(ctx: Context<SetGlobalPool>, new_min_num: u8) -> Result<()> {
+        require!(
+            new_min_num < ctx.accounts.global_pool.max_num,
+            GameError::InvalidTargetNumber
+        );
+
+        ctx.accounts.global_pool.min_num = new_min_num;
+        Ok(())
+    }
+    
+    pub fn set_max_num(ctx: Context<SetGlobalPool>, new_max_num: u8) -> Result<()> {
+        require!(
+            new_max_num > ctx.accounts.global_pool.min_num,
+            GameError::InvalidTargetNumber
+        );
+        
+        ctx.accounts.global_pool.max_num = new_max_num;
         Ok(())
     }
 
