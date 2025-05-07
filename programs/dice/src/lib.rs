@@ -12,7 +12,7 @@ use constants::*;
 use error::*;
 use utils::*;
 
-declare_id!("2yGiLmgFhZvHvLYMshTwcAsZ9Ja2wNxxQiSWKhmPmqZe");
+declare_id!("4z1Xhna5oWPsgQj4ELtQUFRm78fjF4dwLuyMyi6dNUpV");
 
 #[program]
 pub mod dice {
@@ -52,7 +52,7 @@ pub mod dice {
             head_or_tail: indicate whether the player bet on head or tail       0: Tail, 1: Head
             bet_amount:    The SOL amount to deposit
     */
-    pub fn play_game(ctx: Context<PlayGame>, target_number: u8, is_under: bool, bet_amount: u64) -> Result<()> {
+    pub fn play_game(ctx: Context<PlayGame>, target_number: u8, is_under: bool, bet_amount: u64, game_session_id: u64) -> Result<()> {
         let player_pool = &mut ctx.accounts.player_pool;
         let player = &ctx.accounts.owner;
         let global_authority = &ctx.accounts.global_authority;
@@ -104,7 +104,7 @@ pub mod dice {
 
         // Transfer rent fee for PDA of player pool
         sol_transfer_user(
-            ctx.accounts.owner.to_account_info().clone(),
+            ctx.accounts.operator.to_account_info().clone(),
             player_pool.to_account_info().clone(),
             ctx.accounts.system_program.to_account_info().clone(),
             ctx.accounts.rent.minimum_balance(0),
@@ -142,7 +142,7 @@ pub mod dice {
     /**
     The setting result function to determine whether player Win or Lose
     */
-    pub fn set_result(ctx: Context<SetResult>, is_win: bool) -> Result<()> {
+    pub fn set_result(ctx: Context<SetResult>, is_win: bool, game_session_id: u64) -> Result<()> {
         let player_pool = &mut ctx.accounts.player_pool;
         let game_bump = ctx.bumps.game_vault;
         let casino_bump = ctx.bumps.casino_vault;
@@ -176,7 +176,26 @@ pub mod dice {
                 win_balance as u64 - vault_balance,
             )?;
 
-            player_pool.status = GameStatus::Win
+            player_pool.status = GameStatus::Win;
+
+            sol_transfer_with_signer(
+                game_vault.to_account_info(),
+                ctx.accounts.owner.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                &[&[ctx.accounts.owner.key().as_ref(), VAULT_AUTHORITY_SEED.as_bytes(), &game_session_id.to_be_bytes()[..], &[game_bump]]],
+                win_balance as u64,
+            )?;
+
+            let dest_starting_lamports = ctx.accounts.operator.lamports();
+            **ctx.accounts.operator.lamports.borrow_mut() = dest_starting_lamports
+                .checked_add(player_pool.to_account_info().lamports())
+                .unwrap();
+            **player_pool.to_account_info().lamports.borrow_mut() = 0;
+
+            let player_pool_account_info = player_pool.to_account_info();
+            let mut player_pool_data = player_pool_account_info.try_borrow_mut_data()?;
+            player_pool_data.fill(0);
+
         } else {
             sol_transfer_with_signer(
                 game_vault.to_account_info(),
@@ -185,6 +204,7 @@ pub mod dice {
                 &[&[
                     ctx.accounts.owner.key().as_ref(),
                     VAULT_AUTHORITY_SEED.as_bytes(),
+                    &game_session_id.to_be_bytes()[..],
                     &[game_bump],
                 ]],
                 vault_balance,
@@ -192,9 +212,15 @@ pub mod dice {
 
             player_pool.status = GameStatus::Lose;
 
-            // Here, add closePda function
-            // **game_vault.to_account_info().try_borrow_mut_lamports()? = 0;
-            // **player_pool.to_account_info().try_borrow_mut_lamports()? = 0;
+            let dest_starting_lamports = ctx.accounts.operator.lamports();
+            **ctx.accounts.operator.lamports.borrow_mut() = dest_starting_lamports
+                .checked_add(player_pool.to_account_info().lamports())
+                .unwrap();
+            **player_pool.to_account_info().lamports.borrow_mut() = 0;
+
+            let player_pool_account_info = player_pool.to_account_info();
+            let mut player_pool_data = player_pool_account_info.try_borrow_mut_data()?;
+            player_pool_data.fill(0);
         }
 
         Ok(())

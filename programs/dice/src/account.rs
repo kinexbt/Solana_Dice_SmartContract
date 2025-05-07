@@ -18,7 +18,7 @@ pub struct GlobalPool {
 }
 
 impl GlobalPool {
-    pub const DATA_SIZE: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 8; //  168
+    pub const DATA_SIZE: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8; //  176
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Clone, PartialEq)]
@@ -55,7 +55,18 @@ pub struct Initialize<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct InitPlayGameParams {
+    pub target_number: u8,
+    pub is_under: bool,
+    pub bet_amount: u64,
+    pub game_session_id: u64
+}
+
 #[derive(Accounts)]
+#[instruction(
+    params: InitPlayGameParams
+)]
 pub struct PlayGame<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
@@ -69,9 +80,9 @@ pub struct PlayGame<'info> {
     #[account(
         init,
         space = 8 + PlayerPool::DATA_SIZE,
-        seeds = [&owner.key().as_ref(), PLAYER_POOL_SEED.as_bytes()],
+        seeds = [&owner.key().as_ref(), PLAYER_POOL_SEED.as_bytes(), &params.game_session_id.to_be_bytes()[..]],
         bump,
-        payer = owner
+        payer = operator
     )]
     pub player_pool: Account<'info, PlayerPool>,
 
@@ -92,7 +103,7 @@ pub struct PlayGame<'info> {
 
     #[account(
         mut,
-        seeds = [&owner.key().as_ref(), VAULT_AUTHORITY_SEED.as_bytes()],
+        seeds = [&owner.key().as_ref(), VAULT_AUTHORITY_SEED.as_bytes(), &params.game_session_id.to_be_bytes()[..]],
         bump,
     )]
     /// CHECK: This is not dangerous because we don't read or write from this account
@@ -102,7 +113,16 @@ pub struct PlayGame<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct SetResultParams {
+    is_win: bool,
+    game_session_id: u64
+}
+
 #[derive(Accounts)]
+#[instruction(
+    params: SetResultParams
+)]
 pub struct SetResult<'info> {
     #[account(
         mut,
@@ -123,14 +143,14 @@ pub struct SetResult<'info> {
 
     #[account(
         mut,
-        seeds = [&owner.key().as_ref(), PLAYER_POOL_SEED.as_bytes()],
+        seeds = [&owner.key().as_ref(), PLAYER_POOL_SEED.as_bytes(), &params.game_session_id.to_be_bytes()[..]],
         bump
     )]
     pub player_pool: Account<'info, PlayerPool>,
 
     #[account(
         mut,
-        seeds = [&owner.key().as_ref(), VAULT_AUTHORITY_SEED.as_bytes()],
+        seeds = [&owner.key().as_ref(), VAULT_AUTHORITY_SEED.as_bytes(), &params.game_session_id.to_be_bytes()[..]],
         bump,
     )]
     /// CHECK: This is not dangerous because we don't read or write from this account
@@ -143,95 +163,6 @@ pub struct SetResult<'info> {
     )]
     /// CHECK: This is not dangerous because we don't read or write from this account
     pub casino_vault: AccountInfo<'info>,
-
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct DoubleBet<'info> {
-    #[account(mut)]
-    pub owner: Signer<'info>,
-
-    #[account(
-        mut,
-        address = global_authority.operation_authority
-    )]
-    pub operator: Signer<'info>,
-
-    #[account(
-        mut,
-        seeds = [&owner.key().as_ref(), PLAYER_POOL_SEED.as_bytes()],
-        bump,
-    )]
-    pub player_pool: Account<'info, PlayerPool>,
-
-    #[account(
-        mut,
-        seeds = [GLOBAL_AUTHORITY_SEED.as_bytes()],
-        bump,
-    )]
-    pub global_authority: Box<Account<'info, GlobalPool>>,
-
-    #[account(
-        mut,
-        seeds = [VAULT_AUTHORITY_SEED.as_bytes()],
-        bump,
-    )]
-    /// CHECK: This is not dangerous because we don't read or write from this account
-    pub casino_vault: AccountInfo<'info>,
-
-    #[account(
-        mut,
-        seeds = [&owner.key().as_ref(), VAULT_AUTHORITY_SEED.as_bytes()],
-        bump,
-    )]
-    /// CHECK: This is not dangerous because we don't read or write from this account
-    pub game_vault: AccountInfo<'info>,
-
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct ClaimReward<'info> {
-    #[account(
-        mut,
-        address = global_authority.operation_authority
-    )]
-    pub operator: Signer<'info>,
-
-    /// CHECK:
-    #[account(mut)]
-    pub player: AccountInfo<'info>,
-
-    #[account(
-        mut,
-        seeds = [&player.key().as_ref(), PLAYER_POOL_SEED.as_bytes()],
-        bump
-    )]
-    pub player_pool: Account<'info, PlayerPool>,
-
-    #[account(
-        mut,
-        seeds = [GLOBAL_AUTHORITY_SEED.as_bytes()],
-        bump,
-    )]
-    pub global_authority: Box<Account<'info, GlobalPool>>,
-
-    #[account(
-        mut,
-        seeds = [VAULT_AUTHORITY_SEED.as_bytes()],
-        bump,
-    )]
-    /// CHECK: This is not dangerous because we don't read or write from this account
-    pub casino_vault: AccountInfo<'info>,
-
-    #[account(
-        mut,
-        seeds = [&player.key().as_ref(), VAULT_AUTHORITY_SEED.as_bytes()],
-        bump,
-    )]
-    /// CHECK: This is not dangerous because we don't read or write from this account
-    pub game_vault: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -287,7 +218,7 @@ pub struct SetAuthority<'info> {
 #[account]
 #[derive(Default)]
 pub struct PlayerPool {
-    pub bet: u64,            // 8
+    pub bet: u64,           // 8
     pub status: GameStatus, // 3
     pub is_under: bool,     // 1
     pub target_num: u8,     // 1
@@ -295,10 +226,5 @@ pub struct PlayerPool {
 }
 
 impl PlayerPool {
-    pub const DATA_SIZE: usize = 8 + 3 + 1 + 8 + 32; // 52
-
-    // pub fn update_round(&mut self, game_statue: GameStatus, round: u8) {
-    //     self.status = game_statue;
-    //     self.round = round;
-    // }
+    pub const DATA_SIZE: usize = 8 + 8 + 3 + 1 + 1 + 32; // 63
 }
