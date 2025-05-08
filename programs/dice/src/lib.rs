@@ -293,7 +293,7 @@ pub mod dice {
     
     pub fn set_min_num(ctx: Context<SetGlobalPool>, new_min_num: u8) -> Result<()> {
         require!(
-            new_min_num < ctx.accounts.global_pool.max_num,
+            new_min_num <= ctx.accounts.global_pool.max_num,
             GameError::InvalidTargetNumber
         );
 
@@ -303,7 +303,7 @@ pub mod dice {
     
     pub fn set_max_num(ctx: Context<SetGlobalPool>, new_max_num: u8) -> Result<()> {
         require!(
-            new_max_num > ctx.accounts.global_pool.min_num,
+            new_max_num >= ctx.accounts.global_pool.min_num,
             GameError::InvalidTargetNumber
         );
 
